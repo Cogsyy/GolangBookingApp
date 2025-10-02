@@ -1,3 +1,3 @@
-module App1
+module GolangBookingApp
 
 go 1.25.1
