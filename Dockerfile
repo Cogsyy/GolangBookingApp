@@ -1,42 +1,28 @@
 FROM golang:1.25.1-trixie AS builder
 
-# Set the working directory inside the container
+# Set the working directory inside the container to /app
 WORKDIR /app
 
-# Copy go.mod
-COPY go.mod ./
+# Copy all local files (main.go, helper/) into the working directory
+COPY . .
 
-# Download Go module dependencies
-RUN go mod download
+# Download required Go modules and update go.mod/go.sum 
+RUN go mod tidy
 
-COPY helper /app/
+# Build the Go app, producing a binary named "myapp"
+RUN go build -o myapp main.go
 
-# Build the Go application
-# CGO_ENABLED=0 disables Cgo, making the binary statically linked and smaller
-# -o app specifies the output binary name as 'app'
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
-
-# Stage 2: Runner
-# Use a minimal base image like scratch or alpine for the final image
+# Use the minimal Alpine Linux image for runtime to keep the image small
 FROM alpine:latest
 
-# Create a non-root user and group for security
-RUN addgroup -S appuser && adduser -S appuser -G appuser
-
-# Set the working directory
+# Set the working directory for the app
 WORKDIR /app
 
 # Copy the built binary from the builder stage
-COPY --from=builder /app/app .
+COPY --from=builder /app/myapp .
 
-# Change ownership of the application binary to the non-root user
-RUN chown appuser:appuser /app/app
-
-# Switch to the non-root user
-USER appuser
-
-# Expose the port your application listens on (adjust as needed)
+# Optional: expose port 8080 if the app runs a web server
 EXPOSE 8080
 
-# Define the command to run the application
-CMD ["go run main.go"]
+# Set the default command to run your Go app
+CMD ["./myapp"]
